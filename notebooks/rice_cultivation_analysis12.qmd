@@ -1,0 +1,1833 @@
+---
+title: "Exploratory Data Analysis (EDA)"
+author: "Ashura Jedid Jah, Claudine, Delphine"
+date: "2025-07-18"
+format: 
+  html:
+    page-layout: full
+    self-contained: true
+    code-fold: true
+    code-tools: true
+    code-block-bg: true
+    code-block-border-left: "#31BAE9"
+    number-sections: true
+    number-tables: true
+    toc: true
+    toc-location: left
+    toc-title: Contents
+jupyter: python3
+---
+
+Explore the data to describe current farming practices, identify trends, and detect relationships between agronomic decisions and yield outcomes.”
+  
+1.What to analyze:
+How much land is cultivated?
+
+What soil types and drainage conditions exist and how do they contribute to the yield ?
+
+How many farmers use organic vs. chemical fertilizers?
+
+When do farmers transplant or harvest?
+
+Descriptive Profiling of Farming Practices
+
+2.EDA report with:
+- Descriptive statistics.
+- Visualizations of input use and yield patterns.
+- Subgroup comparisons and trend analyses.
+- Data quality assessment.
+
+
+```{python}
+import pandas as pd
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import seaborn as sns
+import os
+```
+
+### 1.Descriptive statistics
+
+We’ll start by calculating key summary statistics for the dataset you uploaded (Cleaned_data.csv):
+
+Numeric variables: count, mean, std deviation, min, max, quartiles
+
+Categorical variables: count of unique values and top frequent values
+
+I'll now run the analysis on the file.
+
+- Here's the summary of the descriptive statistics from your cleaned dataset:
+
+Dataset Overview:
+Total columns: 70
+
+Numeric columns: 45
+
+Categorical/text columns: 25
+
+Sample rows shown: 3 (preview below)
+
+- Descriptive Statistics for Numeric Columns (45 variables):
+Includes:
+
+count: number of non-missing entries
+
+mean: average
+
+std: standard deviation
+
+min & max: range of values
+
+25%, 50%, 75%: quartiles (spread of data)
+
+- Summary of Categorical Columns (25 variables):
+Includes:
+
+count: number of non-missing entries
+
+unique: number of unique values
+
+top: most frequent category
+
+freq: frequency of the top value
+
+```{python}
+# Load the cleaned dataset
+df = pd.read_csv(r"C:\Users\Ashulah\Downloads\data-rice-cultivation\data\Cleaned_data.csv")
+df
+```
+
+```{python}
+# Separate numeric and categorical columns
+numeric_cols = df.select_dtypes(include='number').columns
+print("\n Numerical columns")
+numeric_cols
+```
+
+```{python}
+categorical_cols = df.select_dtypes(exclude='number').columns
+print("\n categorical_columns")
+categorical_cols
+```
+
+### 1.Descriptive Stats for Numeric Columns
+
+```{python}
+numeric_summary = df[numeric_cols].describe().T
+print("Numeric Summary:")
+print(numeric_summary)
+```
+
+### Descriptive Stats for Categorical Columns
+
+```{python}
+# Summary stats for categorical columns
+categorical_summary = df[categorical_cols].describe().T
+print("Categorical Summary:")
+print(categorical_summary)
+```
+
+### 2. Visualizations of input use and yield patterns.
+
+## a. Distribution of Yield
+
+```{python}
+import plotly.express as px
+
+import plotly.express as px
+
+fig = px.scatter(
+    df,
+    x='land_under_rice_llu', 
+    y='yield_kg',
+    color='soil_type',  # Adds color grouping + legend
+    trendline='lowess',  # Smooth trendline
+    title='Yield vs. Land Under Rice (Colored by Soil Type)',
+    labels={
+        'land_under_rice_llu': 'Land Under Rice (acre)', 
+        'yield_kg': 'Yield (kg)',
+        'soil_type': 'Soil Type'  # Legend title
+    }
+)
+
+# Customize legend position (optional)
+fig.update_layout(
+    legend_title_text='Soil Type',  # Explicit legend title
+    legend=dict(
+        x=1.02,  # Places legend outside the plot (right side)
+        y=0.5,
+        bgcolor='rgba(255,255,255,0.5)'  # Semi-transparent background
+    )
+)
+
+fig.show()
+```
+
+```{python}
+fig = px.box(
+    df,
+    x='soil_type',  # Replace with your column name
+    y='yield_kg',
+    color='soil_type',
+    title='Yield Distribution by Soil Type'
+)
+fig.show()
+```
+
+```{python}
+fig = px.violin(
+    df,
+    x='organic_fertilizer_used_flag',  # Replace with your column name
+    y='yield_kg',
+    box=True,  # Adds box plot inside
+    points='all',
+    title='Yield by organic_fertilizer_used_flag'
+)
+fig.show()
+```
+
+### a. Descriptive Profiling of Farming Practices
+
+```{python}
+# Key metrics to profile
+practice_columns = [
+    'soil_type', 'drainage_class', 'rice_tillage_method', 
+    'irrigation_event_count', 'organic_fertilizer_used_flag',
+    'chemical_fertilizers_used_list', 'weeding_times', 'harvest_method'
+]
+
+# Generate profiles
+profiles = df[practice_columns].describe(include='all').T
+profiles['frequency'] = df[practice_columns].apply(lambda x: x.value_counts().iloc[0])
+print(profiles)
+```
+
+```{python}
+df['chemical_fertilizer_used_flag'].unique()
+```
+
+```{python}
+df['harvest_method'].unique()
+```
+
+```{python}
+df['chemical_fertilizers_used_list'].unique()
+```
+
+### b. Yield Pattern Analysis
+
+```{python}
+# Key yield predictors
+predictors = [
+    'land_under_rice_llu', 'soil_type', 'irrigation_event_count',
+    'chemical_fertilizer_application_count', 'disease_observed_flag'
+]
+
+# Grouped analysis
+yield_patterns = df.groupby(predictors)['yield_kg'].agg(['mean', 'median', 'count']).reset_index()
+print(yield_patterns.sort_values('mean', ascending=False).head(10))
+```
+
+```{python}
+import plotly.express as px
+
+# Sort and take top 10 patterns
+top_yield_patterns = yield_patterns.sort_values('mean', ascending=False).head(10)
+
+# Create a readable label for each group
+top_yield_patterns['group'] = top_yield_patterns[predictors].astype(str).agg(' | '.join, axis=1)
+
+# Plot
+fig = px.bar(
+    top_yield_patterns,
+    x='group',
+    y='mean',
+    text='mean',
+    title='Top 10 Yield Patterns by Average Yield',
+    labels={'mean': 'Average Yield (kg)', 'group': 'Predictor Combination'},
+    color_discrete_sequence=px.colors.sequential.RdBu
+)
+
+fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+fig.update_layout(xaxis_tickangle=-45, height=600)
+
+fig.show()
+```
+
+## 2.Comparative Analysis Across Subgroups
+
+### BY USING PIVOT TABLES FIRST
+
+### 1. Yield by Soil Type and Drainage Class
+
+```{python}
+pivot1 = df.pivot_table(
+    index='soil_type',
+    columns='drainage_class',
+    values='yield_kg',
+    aggfunc='mean'
+)
+pivot1
+```
+
+#### 2.Yield by Fertilizer Use and Tillage Method
+
+```{python}
+pivot2 = df.pivot_table(
+    index='chemical_fertilizer_used_flag',
+    columns='rice_tillage_method',
+    values='yield_kg',
+    aggfunc='mean'
+)
+pivot2
+```
+
+### 3. Yield by Disease Presence and Organic Pesticide Use
+
+```{python}
+pivot3 = df.pivot_table(
+    index='disease_observed_flag',
+    columns='organic_pesticide_used_flag',
+    values='yield_kg',
+    aggfunc='mean'
+)
+pivot3
+```
+
+### 4. Yield by District and Previous Crop
+
+```{python}
+pivot4 = df.pivot_table(
+    index='district',
+    columns='previous_crop',
+    values='yield_kg',
+    aggfunc='mean'
+)
+pivot4
+```
+
+### 5. Yield by Irrigation and Weeding Times
+
+```{python}
+pivot5 = df.pivot_table(
+    index='irrigation_applied_flag',
+    columns='weeding_times',
+    values='yield_kg',
+    aggfunc='mean'
+)
+pivot5
+```
+
+### 6. Yield by Video Seen and Growth Duration
+
+```{python}
+# First bin growth duration into categories
+df['growth_duration_cat'] = pd.cut(df['growth_duration'], bins=3, labels=['Short', 'Medium', 'Long'])
+
+pivot6 = df.pivot_table(
+    index='video_seen_flag',
+    columns='growth_duration_cat',
+    values='yield_kg',
+    aggfunc='mean',
+    observed=True  
+)
+pivot6
+```
+
+### Interpretation Insights
+- The pivot tables is revealing which combinations of factors lead to higher yields
+
+- We can identify optimal practices for specific soil types or drainage conditions
+
+- The analysis may show interactions between factors (e.g., certain fertilizers working better with specific tillage methods)
+
+- We can see if disease prevention methods are effective across different conditions
+
+- Regional differences in yields can be identified and correlated with local practices
+
+### Comparison with visuals
+
+```{python}
+# Define comparison groups properly
+comparisons = {
+    'by_district': df.groupby('district', observed=True)['yield_kg'].describe(),
+
+    # Group yield by land size bins
+    'by_land_size': df.groupby(
+        pd.cut(df['land_under_rice_llu'], bins=3),
+        observed=True
+    )['yield_kg'].describe(),
+
+    # Group yield by irrigation event count bins
+    'by_irrigation': df.groupby(
+        pd.cut(df['irrigation_event_count'], bins=[0, 2, 5, 10]),
+        observed=True
+    )['yield_kg'].describe()
+}
+
+# Print results
+for name, result in comparisons.items():
+    print(f"\n{name.upper()}:\n{result}")
+```
+
+####  1. Yield by District
+
+```{python}
+district_yield = df.groupby('district')['yield_kg'].mean().reset_index()
+district_yield = district_yield.sort_values(by='yield_kg', ascending=True)
+
+fig = px.bar(
+    district_yield,
+    x='yield_kg',
+    y='district',
+    orientation='h',  # Horizontal bar
+    title='Average Rice Yield by District',
+    labels={'yield_kg': 'Average Yield (kg)', 'district': 'District'},
+    color_discrete_sequence=px.colors.sequential.RdBu
+)
+
+fig.update_traces(text=district_yield['yield_kg'].round(1), textposition='outside')
+fig.show()
+```
+
+###  2. Yield by Land Size Bins
+
+```{python}
+# Create land size bins (10 equal-width bins)
+df['land_bin'] = pd.cut(
+    df['land_under_rice_llu'], 
+    bins=10,
+    precision=1  # Shows 1 decimal in bin labels
+)
+
+# Calculate mean yield per bin
+land_yield = df.groupby('land_bin', observed=True)['yield_kg'].mean().reset_index()
+
+# Convert interval labels to string and clean formatting
+land_yield['land_bin'] = land_yield['land_bin'].astype(str).str.replace('(', '').str.replace(']', '')
+
+# Sort by yield (ascending for better visualization)
+land_yield = land_yield.sort_values('yield_kg')
+
+# Create interactive bar chart
+fig = px.bar(
+    land_yield,
+    x='yield_kg',
+    y='land_bin',
+    orientation='h',
+    title='Average Yield by Land Size Bins',
+    labels={
+        'yield_kg': 'Average Yield (kg)', 
+        'land_bin': 'Land Size Range (ha)'  # Assuming unit is hectares
+    },
+    color_discrete_sequence=px.colors.sequential.RdBu,
+    height=600  # Better for 10 bins
+)
+
+# Add value labels and improve layout
+fig.update_traces(
+    texttemplate='%{x:.1f} kg',
+    textposition='outside',
+    hovertemplate='<b>%{y}</b><br>Average Yield: %{x:.1f} kg'
+)
+
+fig.update_layout(
+    yaxis={'categoryorder': 'total ascending'},
+    coloraxis_showscale=False,  # Hide color scale for cleaner look
+    hovermode='y'
+)
+
+fig.show()
+```
+
+### Top 20 Chemical Fertilizer Combinations by Average Yield
+
+```{python}
+import pandas as pd
+import plotly.graph_objects as go
+
+# Step 1: Prepare data
+top_chem_ferts = (
+    df.groupby('chemical_fertilizers_used_list')['yield_kg']
+    .agg(['mean', 'count'])
+    .sort_values('count', ascending=False)
+    .head(20)
+    .sort_values('mean', ascending=False)
+    .reset_index()
+)
+
+# Step 2: Create interactive horizontal bar chart
+fig = go.Figure()
+
+fig.add_trace(go.Bar(
+    y=top_chem_ferts['chemical_fertilizers_used_list'],
+    x=top_chem_ferts['mean'],
+    orientation='h',
+    marker=dict(color='#800020'),  # Maroon color
+    text=top_chem_ferts['mean'].round(1),
+    textposition='outside',
+    textfont=dict(size=16),  # Larger number label text
+    hovertemplate='<b>Fertilizer:</b> %{y}<br><b>Avg Yield:</b> %{x:.1f} kg<extra></extra>'
+))
+
+# Step 3: Layout customization
+fig.update_layout(
+    title_text='Top 20 Chemical Fertilizer Combinations by Average Yield',
+    title_font_size=20,
+    width=1100,  # Increase chart width
+    height=800,
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    xaxis=dict(title='Average Yield (kg)', showgrid=False, title_font=dict(size=18), tickfont=dict(size=14)),
+    yaxis=dict(autorange='reversed', showgrid=False, tickfont=dict(size=14)),
+    showlegend=False,
+    margin=dict(l=250, r=50, t=60, b=40)  #Increased left margin for long y labels
+)
+
+# Show chart
+fig.show()
+```
+
+### Average Yield by Drainage Class
+
+```{python}
+import plotly.graph_objects as go
+
+# Step 1: Group and prepare data
+avg_yield = df.groupby('drainage_class')['yield_kg'].mean().sort_values()
+x_vals = avg_yield.index.tolist()
+y_vals = avg_yield.values.round(1)
+
+# Step 2: Create bar chart with thinner bars
+fig = go.Figure()
+
+fig.add_trace(go.Bar(
+    x=x_vals,
+    y=y_vals,
+    width=0.2,  # Reduce bar thickness (default is ~0.8)
+    marker_color='#800020',
+    text=y_vals,
+    textposition='outside',
+    hovertemplate='<b>Drainage:</b> %{x}<br><b>Avg Yield:</b> %{y} kg<extra></extra>'
+))
+
+# Step 3: Layout styling
+fig.update_layout(
+    title_text='Average Yield by Drainage Class',
+    title_font_size=20,
+    xaxis=dict(title='Drainage Class', tickangle=45, showgrid=False),
+    yaxis=dict(title='Average Yield (kg)', showgrid=False),
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    showlegend=False,
+    margin=dict(l=60, r=20, t=60, b=60)
+)
+
+fig.show()
+```
+
+### Average Yield When Bio-Pesticides Are Used
+
+```{python}
+import pandas as pd
+import plotly.graph_objects as go
+
+# Define bio-pesticide usage columns
+bio_flags = [
+    'used_brahmastra_flag', 'used_lohastra_flag', 'used_neemastra_flag',
+    'used_mathastra_flag', 'used_agniastra_flag'
+]
+
+# Step 1: Compute average yield where each bio-pesticide is used (flag == 1)
+bio_yield_contribution = {}
+for flag in bio_flags:
+    avg_yield = df[df[flag] == 1]['yield_kg'].mean()
+    bio_yield_contribution[flag] = round(avg_yield, 1)
+
+# Step 2: Sort values
+bio_yield_series = pd.Series(bio_yield_contribution).sort_values()
+
+# Step 3: Interactive horizontal bar chart
+fig = go.Figure()
+
+fig.add_trace(go.Bar(
+    y=bio_yield_series.index,
+    x=bio_yield_series.values,
+    orientation='h',
+    marker_color='#800020',  # Maroon color
+    text=bio_yield_series.values,
+    textposition='outside',
+    hovertemplate='<b>Bio-Pesticide:</b> %{y}<br><b>Avg Yield:</b> %{x} kg<extra></extra>'
+))
+
+# Step 4: Clean layout
+fig.update_layout(
+    title_text='Average Yield When Bio-Pesticides Are Used',
+    title_font_size=20,
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    xaxis=dict(title='Average Yield (kg)', showgrid=False),
+    yaxis=dict(autorange='reversed', showgrid=False),
+    showlegend=False,
+    margin=dict(l=100, r=30, t=60, b=40)
+)
+
+# Show chart
+fig.show()
+```
+
+### Proportion of Total Yield by Organic Pesticide Usage
+
+```{python}
+import plotly.graph_objects as go
+
+# Step 1: Group data by organic pesticide usage and sum yield
+pie_data = (
+    df.groupby('organic_pesticide_used_flag')['yield_kg']
+    .sum()
+    .rename({'Yes': 'Used', 'No': 'Not Used'})
+    .sort_values(ascending=False)
+)
+
+# Step 2: Create interactive pie chart
+fig = go.Figure(data=[go.Pie(
+    labels=pie_data.index,
+    values=pie_data.values,
+    marker=dict(colors=['#800020', '#d3d3d3']),  # Maroon and light gray
+    textinfo='label+percent',
+    hovertemplate='<b>%{label}</b><br>Total Yield: %{value:.0f} kg<extra></extra>',
+    hole=0.3  # Donut-style
+)])
+
+# Step 3: Layout
+fig.update_layout(
+    title_text='Proportion of Total Yield by Organic Pesticide Usage',
+    title_font_size=20,
+    paper_bgcolor='white'
+)
+
+# Show chart
+fig.show()
+```
+
+### Average Yield by Number of Irrigation Events
+
+```{python}
+import plotly.graph_objects as go
+
+# Step 1: Group and calculate average yield
+irrigation_yield = (
+    df.groupby('irrigation_event_count')['yield_kg']
+    .mean()
+    .sort_index()
+    .round(1)
+)
+
+# Step 2: Build interactive bar chart
+fig = go.Figure()
+
+fig.add_trace(go.Bar(
+    x=irrigation_yield.index.astype(str),  # Ensure it's categorical
+    y=irrigation_yield.values,
+    marker_color='#800020',  # Maroon color
+    text=irrigation_yield.values,
+    textposition='outside',
+    hovertemplate='<b>Irrigation Events:</b> %{x}<br><b>Avg Yield:</b> %{y} kg<extra></extra>'
+))
+
+# Step 3: Styling
+fig.update_layout(
+    title='Average Yield by Number of Irrigation Events',
+    title_font_size=20,
+    xaxis=dict(title='Number of Irrigation Events'),
+    yaxis=dict(title='Average Yield (kg)', showgrid=False),
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    showlegend=False,
+    margin=dict(l=60, r=30, t=60, b=60)
+)
+
+# Display chart
+fig.show()
+```
+
+### Average Yield by Seedling Age (Days)'
+
+```{python}
+import plotly.graph_objects as go
+
+# Step 1: Group and compute average yield per seedling age
+seedling_yield = (
+    df.groupby('seedling_age_days')['yield_kg']
+    .mean()
+    .sort_index()
+    .round(1)
+)
+
+# Step 2: Build interactive line plot
+fig = go.Figure()
+
+fig.add_trace(go.Scatter(
+    x=seedling_yield.index,
+    y=seedling_yield.values,
+    mode='lines+markers',
+    line=dict(color='#800020', width=3),
+    marker=dict(size=6),
+    hovertemplate='<b>Seedling Age:</b> %{x} days<br><b>Avg Yield:</b> %{y} kg<extra></extra>',
+    name='Avg Yield'
+))
+
+# Step 3: Layout styling
+fig.update_layout(
+    title='Average Yield by Seedling Age (Days)',
+    title_font_size=20,
+    xaxis_title='Seedling Age (Days)',
+    yaxis_title='Average Yield (kg)',
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    showlegend=False,
+    margin=dict(l=60, r=30, t=60, b=60),
+    xaxis=dict(showgrid=False),
+    yaxis=dict(showgrid=False)
+)
+
+# Show chart
+fig.show()
+```
+
+### Proportion of Total Yield by Organic Fertilizer Usage
+
+```{python}
+import plotly.graph_objects as go
+
+# Step 1: Group by fertilizer usage and sum yield
+organic_fert_yield = (
+    df.groupby('organic_fertilizer_used_flag')['yield_kg']
+    .sum()
+    .rename({'Yes': 'Used', 'No': 'Not Used'})
+    .sort_values(ascending=False)
+)
+
+# Step 2: Build interactive pie chart
+fig = go.Figure(data=[go.Pie(
+    labels=organic_fert_yield.index,
+    values=organic_fert_yield.values,
+    marker=dict(colors=['#800020', '#d3d3d3']),  # Maroon and light gray
+    textinfo='label+percent',
+    hovertemplate='<b>%{label}</b><br>Total Yield: %{value:.0f} kg<extra></extra>',
+    hole=0.3  # Optional donut style
+)])
+
+# Step 3: Layout
+fig.update_layout(
+    title='Proportion of Total Yield by Organic Fertilizer Usage',
+    title_font_size=20,
+    paper_bgcolor='white'
+)
+
+# Show chart
+fig.show()
+```
+
+### Proportion of Total Yield by Chemical Fertilizer Usage
+
+```{python}
+import plotly.graph_objects as go
+
+# Step 1: Aggregate yield by chemical fertilizer usage
+chem_fert_yield = (
+    df.groupby('chemical_fertilizer_used_flag')['yield_kg']
+    .sum()
+    .rename({'Yes': 'Used', 'No': 'Not Used'})
+    .sort_values(ascending=False)
+)
+
+# Step 2: Create pie chart
+fig = go.Figure(data=[go.Pie(
+    labels=chem_fert_yield.index,
+    values=chem_fert_yield.values,
+    marker=dict(colors=['#800020', '#d3d3d3']),  # Maroon and light gray
+    textinfo='label+percent',
+    hovertemplate='<b>%{label}</b><br>Total Yield: %{value:.0f} kg<extra></extra>',
+    hole=0.3
+)])
+
+# Step 3: Styling
+fig.update_layout(
+    title='Proportion of Total Yield by Chemical Fertilizer Usage',
+    title_font_size=20,
+    paper_bgcolor='white'
+)
+
+# Show chart
+fig.show()
+```
+
+## CORRELATION ANALYSIS AND HYPOTHESIS TESTS
+
+### CORRELATION ANALYSIS
+
+ ### correlation between yield_kg and other numeric factors.
+
+```{python}
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Select numeric columns of interest
+num_cols = [
+    'yield_kg',
+    'irrigation_event_count',
+    'basal_urea_kg',
+    'basal_dap_kg',
+    'basal_npks_kg',
+    'basal_mop_kg',
+    'basal_ssp_kg',
+    'basal_zinc_kg',
+    'seedling_age_days',
+    'weeding_times',
+    'land_under_rice_llu'
+]
+
+# Drop rows with missing values
+# df_corr = df[num_cols].dropna()
+
+# Correlation matrix
+corr_matrix = df[num_cols].corr()
+
+# Visualize
+plt.figure(figsize=(10, 8))
+sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", fmt=".2f")
+plt.title("Correlation Matrix with Yield")
+plt.show()
+```
+
+### Correlation of Distribution of Yield
+
+```{python}
+correlation = df[['land_under_rice_llu', 'yield_kg']].corr(method='pearson')
+print(correlation) 
+```
+
+### correlation between total_cultivable_land_llu and yield_kg
+
+```{python}
+correlation = df[['total_cultivable_land_llu', 'yield_kg']].corr(method='pearson')
+print(correlation)
+```
+
+### correlation between seedling age and yield_kg
+
+```{python}
+correlation = df[['seedling_age_days', 'yield_kg']].corr(method='pearson')
+print(correlation)
+```
+
+## HYPOTHESIS TESTS
+
+### Does irrigation affect yield?
+
+```{python}
+from scipy.stats import ttest_ind
+
+# Create two groups based on string values
+group1 = df[df['irrigation_applied_flag'] == 'Yes']['yield_kg']
+group2 = df[df['irrigation_applied_flag'] == 'No']['yield_kg']
+
+# Run the t-test
+t_stat, p_val = ttest_ind(group1, group2)
+
+# Output the result
+print(f"T-statistic = {t_stat:.2f}, p-value = {p_val:.4f}")
+
+```
+
+### Does tillage method affect yield by using ANOVA
+
+```{python}
+from scipy.stats import f_oneway
+
+# Step 1: Prepare the data — only keep relevant columns and drop missing values
+anova_data = df[['rice_tillage_method', 'yield_kg']].dropna()
+
+# Step 2: Group yield data by rice tillage method
+groups = [group['yield_kg'].values for name, group in anova_data.groupby('rice_tillage_method')]
+
+# Step 3: Perform one-way ANOVA
+f_stat, p_val = f_oneway(*groups)
+
+# Step 4: Output the results
+print(" ANOVA Results:")
+print(f"F-statistic: {f_stat:.4f}")
+print(f"P-value: {p_val:.4f}")
+
+# Optional: interpret result
+if p_val < 0.05:
+    print(" Statistically significant differences in yield across rice tillage methods.")
+else:
+    print(" No significant difference in yield across rice tillage methods.")
+```
+
+#### If p < 0.05, different tillage methods lead to significant yield differences.
+
+### Organic vs Chemical Fertilizer Impact on Yield
+
+```{python}
+from scipy.stats import ttest_ind
+
+# Filter using correct values (change to 'Yes' or 1 based on your data)
+org = df[df['organic_fertilizer_used_flag'] == 'Yes']['yield_kg']
+chem = df[df['chemical_fertilizer_used_flag'] == 'Yes']['yield_kg']
+
+# Run t-test
+t_stat, p_val = ttest_ind(org, chem)
+print(f"T-statistic = {t_stat:.2f}, p-value = {p_val:.4f}")
+```
+
+### 4. Challenges & Data Gaps Documentation
+
+```{python}
+# Identify data quality issues
+data_gaps = {
+    'missing_values': df.isnull().sum(),
+    'outliers': {
+        'weeding_times': len(df[~df['weeding_times'].between(1,5)]),
+        'yield_kg': len(df[df['yield_kg'] > df['yield_kg'].quantile(0.99)])
+    }
+}
+
+print("\nDATA QUALITY REPORT:")
+for issue, details in data_gaps.items():
+    print(f"\n{issue}:")
+    print(details)
+```
+
+### 5. Evidence-Based Recommendations
+
+#### Evidence-Based Recommendations
+##### From Analysis to Action:
+
+Extension Priorities:
+
+Target districts with lowest 25% yields for improved irrigation training
+
+Promote balanced fertilizer use where high Urea/DAP ratios correlate with low yields
+
+Input Optimization:
+### Pest Management:
+
+Develop targeted advisories for districts with high disease incidence
+
+Highlight successful organic pesticide cases (e.g., farms using jivamrit with low disease rates)
+
+
+
+
+
+---
+
+Explore the data to describe current farming practices, identify trends, and detect relationships between agronomic decisions and yield outcomes.”
+  
+1.What to analyze:
+How much land is cultivated?
+
+What soil types and drainage conditions exist and how do they contribute to the yield ?
+
+How many farmers use organic vs. chemical fertilizers?
+
+When do farmers transplant or harvest?
+
+Descriptive Profiling of Farming Practices
+
+2.EDA report with:
+- Descriptive statistics.
+- Visualizations of input use and yield patterns.
+- Subgroup comparisons and trend analyses.
+- Data quality assessment.
+
+
+```{python}
+import pandas as pd
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import seaborn as sns
+import os
+```
+
+### 1.Descriptive statistics
+
+We’ll start by calculating key summary statistics for the dataset you uploaded (Cleaned_data.csv):
+
+Numeric variables: count, mean, std deviation, min, max, quartiles
+
+Categorical variables: count of unique values and top frequent values
+
+I'll now run the analysis on the file.
+
+- Here's the summary of the descriptive statistics from your cleaned dataset:
+
+Dataset Overview:
+Total columns: 70
+
+Numeric columns: 45
+
+Categorical/text columns: 25
+
+Sample rows shown: 3 (preview below)
+
+- Descriptive Statistics for Numeric Columns (45 variables):
+Includes:
+
+count: number of non-missing entries
+
+mean: average
+
+std: standard deviation
+
+min & max: range of values
+
+25%, 50%, 75%: quartiles (spread of data)
+
+- Summary of Categorical Columns (25 variables):
+Includes:
+
+count: number of non-missing entries
+
+unique: number of unique values
+
+top: most frequent category
+
+freq: frequency of the top value
+
+```{python}
+# Load the cleaned dataset
+df = pd.read_csv(r"C:\Users\Ashulah\Downloads\data-rice-cultivation\data\Cleaned_data.csv")
+df
+```
+
+```{python}
+# Separate numeric and categorical columns
+numeric_cols = df.select_dtypes(include='number').columns
+print("\n Numerical columns")
+numeric_cols
+```
+
+```{python}
+categorical_cols = df.select_dtypes(exclude='number').columns
+print("\n categorical_columns")
+categorical_cols
+```
+
+### 1.Descriptive Stats for Numeric Columns
+
+```{python}
+numeric_summary = df[numeric_cols].describe().T
+print("Numeric Summary:")
+print(numeric_summary)
+```
+
+### Descriptive Stats for Categorical Columns
+
+```{python}
+# Summary stats for categorical columns
+categorical_summary = df[categorical_cols].describe().T
+print("Categorical Summary:")
+print(categorical_summary)
+```
+
+### 2. Visualizations of input use and yield patterns.
+
+## a. Distribution of Yield
+
+```{python}
+import plotly.express as px
+
+import plotly.express as px
+
+fig = px.scatter(
+    df,
+    x='land_under_rice_llu', 
+    y='yield_kg',
+    color='soil_type',  # Adds color grouping + legend
+    trendline='lowess',  # Smooth trendline
+    title='Yield vs. Land Under Rice (Colored by Soil Type)',
+    labels={
+        'land_under_rice_llu': 'Land Under Rice (acre)', 
+        'yield_kg': 'Yield (kg)',
+        'soil_type': 'Soil Type'  # Legend title
+    }
+)
+
+# Customize legend position (optional)
+fig.update_layout(
+    legend_title_text='Soil Type',  # Explicit legend title
+    legend=dict(
+        x=1.02,  # Places legend outside the plot (right side)
+        y=0.5,
+        bgcolor='rgba(255,255,255,0.5)'  # Semi-transparent background
+    )
+)
+
+fig.show()
+```
+
+```{python}
+fig = px.box(
+    df,
+    x='soil_type',  # Replace with your column name
+    y='yield_kg',
+    color='soil_type',
+    title='Yield Distribution by Soil Type'
+)
+fig.show()
+```
+
+```{python}
+fig = px.violin(
+    df,
+    x='organic_fertilizer_used_flag',  # Replace with your column name
+    y='yield_kg',
+    box=True,  # Adds box plot inside
+    points='all',
+    title='Yield by organic_fertilizer_used_flag'
+)
+fig.show()
+```
+
+### a. Descriptive Profiling of Farming Practices
+
+```{python}
+# Key metrics to profile
+practice_columns = [
+    'soil_type', 'drainage_class', 'rice_tillage_method', 
+    'irrigation_event_count', 'organic_fertilizer_used_flag',
+    'chemical_fertilizers_used_list', 'weeding_times', 'harvest_method'
+]
+
+# Generate profiles
+profiles = df[practice_columns].describe(include='all').T
+profiles['frequency'] = df[practice_columns].apply(lambda x: x.value_counts().iloc[0])
+print(profiles)
+```
+
+```{python}
+df['chemical_fertilizer_used_flag'].unique()
+```
+
+```{python}
+df['harvest_method'].unique()
+```
+
+```{python}
+df['chemical_fertilizers_used_list'].unique()
+```
+
+### b. Yield Pattern Analysis
+
+```{python}
+# Key yield predictors
+predictors = [
+    'land_under_rice_llu', 'soil_type', 'irrigation_event_count',
+    'chemical_fertilizer_application_count', 'disease_observed_flag'
+]
+
+# Grouped analysis
+yield_patterns = df.groupby(predictors)['yield_kg'].agg(['mean', 'median', 'count']).reset_index()
+print(yield_patterns.sort_values('mean', ascending=False).head(10))
+```
+
+```{python}
+import plotly.express as px
+
+# Sort and take top 10 patterns
+top_yield_patterns = yield_patterns.sort_values('mean', ascending=False).head(10)
+
+# Create a readable label for each group
+top_yield_patterns['group'] = top_yield_patterns[predictors].astype(str).agg(' | '.join, axis=1)
+
+# Plot
+fig = px.bar(
+    top_yield_patterns,
+    x='group',
+    y='mean',
+    text='mean',
+    title='Top 10 Yield Patterns by Average Yield',
+    labels={'mean': 'Average Yield (kg)', 'group': 'Predictor Combination'},
+    color_discrete_sequence=px.colors.sequential.RdBu
+)
+
+fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+fig.update_layout(xaxis_tickangle=-45, height=600)
+
+fig.show()
+```
+
+## 2.Comparative Analysis Across Subgroups
+
+### BY USING PIVOT TABLES FIRST
+
+### 1. Yield by Soil Type and Drainage Class
+
+```{python}
+pivot1 = df.pivot_table(
+    index='soil_type',
+    columns='drainage_class',
+    values='yield_kg',
+    aggfunc='mean'
+)
+pivot1
+```
+
+#### 2.Yield by Fertilizer Use and Tillage Method
+
+```{python}
+pivot2 = df.pivot_table(
+    index='chemical_fertilizer_used_flag',
+    columns='rice_tillage_method',
+    values='yield_kg',
+    aggfunc='mean'
+)
+pivot2
+```
+
+### 3. Yield by Disease Presence and Organic Pesticide Use
+
+```{python}
+pivot3 = df.pivot_table(
+    index='disease_observed_flag',
+    columns='organic_pesticide_used_flag',
+    values='yield_kg',
+    aggfunc='mean'
+)
+pivot3
+```
+
+### 4. Yield by District and Previous Crop
+
+```{python}
+pivot4 = df.pivot_table(
+    index='district',
+    columns='previous_crop',
+    values='yield_kg',
+    aggfunc='mean'
+)
+pivot4
+```
+
+### 5. Yield by Irrigation and Weeding Times
+
+```{python}
+pivot5 = df.pivot_table(
+    index='irrigation_applied_flag',
+    columns='weeding_times',
+    values='yield_kg',
+    aggfunc='mean'
+)
+pivot5
+```
+
+### 6. Yield by Video Seen and Growth Duration
+
+```{python}
+# First bin growth duration into categories
+df['growth_duration_cat'] = pd.cut(df['growth_duration'], bins=3, labels=['Short', 'Medium', 'Long'])
+
+pivot6 = df.pivot_table(
+    index='video_seen_flag',
+    columns='growth_duration_cat',
+    values='yield_kg',
+    aggfunc='mean',
+    observed=True  
+)
+pivot6
+```
+
+### Interpretation Insights
+- The pivot tables is revealing which combinations of factors lead to higher yields
+
+- We can identify optimal practices for specific soil types or drainage conditions
+
+- The analysis may show interactions between factors (e.g., certain fertilizers working better with specific tillage methods)
+
+- We can see if disease prevention methods are effective across different conditions
+
+- Regional differences in yields can be identified and correlated with local practices
+
+### Comparison with visuals
+
+```{python}
+# Define comparison groups properly
+comparisons = {
+    'by_district': df.groupby('district', observed=True)['yield_kg'].describe(),
+
+    # Group yield by land size bins
+    'by_land_size': df.groupby(
+        pd.cut(df['land_under_rice_llu'], bins=3),
+        observed=True
+    )['yield_kg'].describe(),
+
+    # Group yield by irrigation event count bins
+    'by_irrigation': df.groupby(
+        pd.cut(df['irrigation_event_count'], bins=[0, 2, 5, 10]),
+        observed=True
+    )['yield_kg'].describe()
+}
+
+# Print results
+for name, result in comparisons.items():
+    print(f"\n{name.upper()}:\n{result}")
+```
+
+####  1. Yield by District
+
+```{python}
+district_yield = df.groupby('district')['yield_kg'].mean().reset_index()
+district_yield = district_yield.sort_values(by='yield_kg', ascending=True)
+
+fig = px.bar(
+    district_yield,
+    x='yield_kg',
+    y='district',
+    orientation='h',  # Horizontal bar
+    title='Average Rice Yield by District',
+    labels={'yield_kg': 'Average Yield (kg)', 'district': 'District'},
+    color_discrete_sequence=px.colors.sequential.RdBu
+)
+
+fig.update_traces(text=district_yield['yield_kg'].round(1), textposition='outside')
+fig.show()
+```
+
+###  2. Yield by Land Size Bins
+
+```{python}
+# Create land size bins (10 equal-width bins)
+df['land_bin'] = pd.cut(
+    df['land_under_rice_llu'], 
+    bins=10,
+    precision=1  # Shows 1 decimal in bin labels
+)
+
+# Calculate mean yield per bin
+land_yield = df.groupby('land_bin', observed=True)['yield_kg'].mean().reset_index()
+
+# Convert interval labels to string and clean formatting
+land_yield['land_bin'] = land_yield['land_bin'].astype(str).str.replace('(', '').str.replace(']', '')
+
+# Sort by yield (ascending for better visualization)
+land_yield = land_yield.sort_values('yield_kg')
+
+# Create interactive bar chart
+fig = px.bar(
+    land_yield,
+    x='yield_kg',
+    y='land_bin',
+    orientation='h',
+    title='Average Yield by Land Size Bins',
+    labels={
+        'yield_kg': 'Average Yield (kg)', 
+        'land_bin': 'Land Size Range (ha)'  # Assuming unit is hectares
+    },
+    color_discrete_sequence=px.colors.sequential.RdBu,
+    height=600  # Better for 10 bins
+)
+
+# Add value labels and improve layout
+fig.update_traces(
+    texttemplate='%{x:.1f} kg',
+    textposition='outside',
+    hovertemplate='<b>%{y}</b><br>Average Yield: %{x:.1f} kg'
+)
+
+fig.update_layout(
+    yaxis={'categoryorder': 'total ascending'},
+    coloraxis_showscale=False,  # Hide color scale for cleaner look
+    hovermode='y'
+)
+
+fig.show()
+```
+
+### Top 20 Chemical Fertilizer Combinations by Average Yield
+
+```{python}
+import pandas as pd
+import plotly.graph_objects as go
+
+# Step 1: Prepare data
+top_chem_ferts = (
+    df.groupby('chemical_fertilizers_used_list')['yield_kg']
+    .agg(['mean', 'count'])
+    .sort_values('count', ascending=False)
+    .head(20)
+    .sort_values('mean', ascending=False)
+    .reset_index()
+)
+
+# Step 2: Create interactive horizontal bar chart
+fig = go.Figure()
+
+fig.add_trace(go.Bar(
+    y=top_chem_ferts['chemical_fertilizers_used_list'],
+    x=top_chem_ferts['mean'],
+    orientation='h',
+    marker=dict(color='#800020'),  # Maroon color
+    text=top_chem_ferts['mean'].round(1),
+    textposition='outside',
+    textfont=dict(size=16),  # Larger number label text
+    hovertemplate='<b>Fertilizer:</b> %{y}<br><b>Avg Yield:</b> %{x:.1f} kg<extra></extra>'
+))
+
+# Step 3: Layout customization
+fig.update_layout(
+    title_text='Top 20 Chemical Fertilizer Combinations by Average Yield',
+    title_font_size=20,
+    width=1100,  # Increase chart width
+    height=800,
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    xaxis=dict(title='Average Yield (kg)', showgrid=False, title_font=dict(size=18), tickfont=dict(size=14)),
+    yaxis=dict(autorange='reversed', showgrid=False, tickfont=dict(size=14)),
+    showlegend=False,
+    margin=dict(l=250, r=50, t=60, b=40)  #Increased left margin for long y labels
+)
+
+# Show chart
+fig.show()
+```
+
+### Average Yield by Drainage Class
+
+```{python}
+import plotly.graph_objects as go
+
+# Step 1: Group and prepare data
+avg_yield = df.groupby('drainage_class')['yield_kg'].mean().sort_values()
+x_vals = avg_yield.index.tolist()
+y_vals = avg_yield.values.round(1)
+
+# Step 2: Create bar chart with thinner bars
+fig = go.Figure()
+
+fig.add_trace(go.Bar(
+    x=x_vals,
+    y=y_vals,
+    width=0.2,  # Reduce bar thickness (default is ~0.8)
+    marker_color='#800020',
+    text=y_vals,
+    textposition='outside',
+    hovertemplate='<b>Drainage:</b> %{x}<br><b>Avg Yield:</b> %{y} kg<extra></extra>'
+))
+
+# Step 3: Layout styling
+fig.update_layout(
+    title_text='Average Yield by Drainage Class',
+    title_font_size=20,
+    xaxis=dict(title='Drainage Class', tickangle=45, showgrid=False),
+    yaxis=dict(title='Average Yield (kg)', showgrid=False),
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    showlegend=False,
+    margin=dict(l=60, r=20, t=60, b=60)
+)
+
+fig.show()
+```
+
+### Average Yield When Bio-Pesticides Are Used
+
+```{python}
+import pandas as pd
+import plotly.graph_objects as go
+
+# Define bio-pesticide usage columns
+bio_flags = [
+    'used_brahmastra_flag', 'used_lohastra_flag', 'used_neemastra_flag',
+    'used_mathastra_flag', 'used_agniastra_flag'
+]
+
+# Step 1: Compute average yield where each bio-pesticide is used (flag == 1)
+bio_yield_contribution = {}
+for flag in bio_flags:
+    avg_yield = df[df[flag] == 1]['yield_kg'].mean()
+    bio_yield_contribution[flag] = round(avg_yield, 1)
+
+# Step 2: Sort values
+bio_yield_series = pd.Series(bio_yield_contribution).sort_values()
+
+# Step 3: Interactive horizontal bar chart
+fig = go.Figure()
+
+fig.add_trace(go.Bar(
+    y=bio_yield_series.index,
+    x=bio_yield_series.values,
+    orientation='h',
+    marker_color='#800020',  # Maroon color
+    text=bio_yield_series.values,
+    textposition='outside',
+    hovertemplate='<b>Bio-Pesticide:</b> %{y}<br><b>Avg Yield:</b> %{x} kg<extra></extra>'
+))
+
+# Step 4: Clean layout
+fig.update_layout(
+    title_text='Average Yield When Bio-Pesticides Are Used',
+    title_font_size=20,
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    xaxis=dict(title='Average Yield (kg)', showgrid=False),
+    yaxis=dict(autorange='reversed', showgrid=False),
+    showlegend=False,
+    margin=dict(l=100, r=30, t=60, b=40)
+)
+
+# Show chart
+fig.show()
+```
+
+### Proportion of Total Yield by Organic Pesticide Usage
+
+```{python}
+import plotly.graph_objects as go
+
+# Step 1: Group data by organic pesticide usage and sum yield
+pie_data = (
+    df.groupby('organic_pesticide_used_flag')['yield_kg']
+    .sum()
+    .rename({'Yes': 'Used', 'No': 'Not Used'})
+    .sort_values(ascending=False)
+)
+
+# Step 2: Create interactive pie chart
+fig = go.Figure(data=[go.Pie(
+    labels=pie_data.index,
+    values=pie_data.values,
+    marker=dict(colors=['#800020', '#d3d3d3']),  # Maroon and light gray
+    textinfo='label+percent',
+    hovertemplate='<b>%{label}</b><br>Total Yield: %{value:.0f} kg<extra></extra>',
+    hole=0.3  # Donut-style
+)])
+
+# Step 3: Layout
+fig.update_layout(
+    title_text='Proportion of Total Yield by Organic Pesticide Usage',
+    title_font_size=20,
+    paper_bgcolor='white'
+)
+
+# Show chart
+fig.show()
+```
+
+### Average Yield by Number of Irrigation Events
+
+```{python}
+import plotly.graph_objects as go
+
+# Step 1: Group and calculate average yield
+irrigation_yield = (
+    df.groupby('irrigation_event_count')['yield_kg']
+    .mean()
+    .sort_index()
+    .round(1)
+)
+
+# Step 2: Build interactive bar chart
+fig = go.Figure()
+
+fig.add_trace(go.Bar(
+    x=irrigation_yield.index.astype(str),  # Ensure it's categorical
+    y=irrigation_yield.values,
+    marker_color='#800020',  # Maroon color
+    text=irrigation_yield.values,
+    textposition='outside',
+    hovertemplate='<b>Irrigation Events:</b> %{x}<br><b>Avg Yield:</b> %{y} kg<extra></extra>'
+))
+
+# Step 3: Styling
+fig.update_layout(
+    title='Average Yield by Number of Irrigation Events',
+    title_font_size=20,
+    xaxis=dict(title='Number of Irrigation Events'),
+    yaxis=dict(title='Average Yield (kg)', showgrid=False),
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    showlegend=False,
+    margin=dict(l=60, r=30, t=60, b=60)
+)
+
+# Display chart
+fig.show()
+```
+
+### Average Yield by Seedling Age (Days)'
+
+```{python}
+import plotly.graph_objects as go
+
+# Step 1: Group and compute average yield per seedling age
+seedling_yield = (
+    df.groupby('seedling_age_days')['yield_kg']
+    .mean()
+    .sort_index()
+    .round(1)
+)
+
+# Step 2: Build interactive line plot
+fig = go.Figure()
+
+fig.add_trace(go.Scatter(
+    x=seedling_yield.index,
+    y=seedling_yield.values,
+    mode='lines+markers',
+    line=dict(color='#800020', width=3),
+    marker=dict(size=6),
+    hovertemplate='<b>Seedling Age:</b> %{x} days<br><b>Avg Yield:</b> %{y} kg<extra></extra>',
+    name='Avg Yield'
+))
+
+# Step 3: Layout styling
+fig.update_layout(
+    title='Average Yield by Seedling Age (Days)',
+    title_font_size=20,
+    xaxis_title='Seedling Age (Days)',
+    yaxis_title='Average Yield (kg)',
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    showlegend=False,
+    margin=dict(l=60, r=30, t=60, b=60),
+    xaxis=dict(showgrid=False),
+    yaxis=dict(showgrid=False)
+)
+
+# Show chart
+fig.show()
+```
+
+### Proportion of Total Yield by Organic Fertilizer Usage
+
+```{python}
+import plotly.graph_objects as go
+
+# Step 1: Group by fertilizer usage and sum yield
+organic_fert_yield = (
+    df.groupby('organic_fertilizer_used_flag')['yield_kg']
+    .sum()
+    .rename({'Yes': 'Used', 'No': 'Not Used'})
+    .sort_values(ascending=False)
+)
+
+# Step 2: Build interactive pie chart
+fig = go.Figure(data=[go.Pie(
+    labels=organic_fert_yield.index,
+    values=organic_fert_yield.values,
+    marker=dict(colors=['#800020', '#d3d3d3']),  # Maroon and light gray
+    textinfo='label+percent',
+    hovertemplate='<b>%{label}</b><br>Total Yield: %{value:.0f} kg<extra></extra>',
+    hole=0.3  # Optional donut style
+)])
+
+# Step 3: Layout
+fig.update_layout(
+    title='Proportion of Total Yield by Organic Fertilizer Usage',
+    title_font_size=20,
+    paper_bgcolor='white'
+)
+
+# Show chart
+fig.show()
+```
+
+### Proportion of Total Yield by Chemical Fertilizer Usage
+
+```{python}
+import plotly.graph_objects as go
+
+# Step 1: Aggregate yield by chemical fertilizer usage
+chem_fert_yield = (
+    df.groupby('chemical_fertilizer_used_flag')['yield_kg']
+    .sum()
+    .rename({'Yes': 'Used', 'No': 'Not Used'})
+    .sort_values(ascending=False)
+)
+
+# Step 2: Create pie chart
+fig = go.Figure(data=[go.Pie(
+    labels=chem_fert_yield.index,
+    values=chem_fert_yield.values,
+    marker=dict(colors=['#800020', '#d3d3d3']),  # Maroon and light gray
+    textinfo='label+percent',
+    hovertemplate='<b>%{label}</b><br>Total Yield: %{value:.0f} kg<extra></extra>',
+    hole=0.3
+)])
+
+# Step 3: Styling
+fig.update_layout(
+    title='Proportion of Total Yield by Chemical Fertilizer Usage',
+    title_font_size=20,
+    paper_bgcolor='white'
+)
+
+# Show chart
+fig.show()
+```
+
+## CORRELATION ANALYSIS AND HYPOTHESIS TESTS
+
+### CORRELATION ANALYSIS
+
+ ### correlation between yield_kg and other numeric factors.
+
+```{python}
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Select numeric columns of interest
+num_cols = [
+    'yield_kg',
+    'irrigation_event_count',
+    'basal_urea_kg',
+    'basal_dap_kg',
+    'basal_npks_kg',
+    'basal_mop_kg',
+    'basal_ssp_kg',
+    'basal_zinc_kg',
+    'seedling_age_days',
+    'weeding_times',
+    'land_under_rice_llu'
+]
+
+# Drop rows with missing values
+# df_corr = df[num_cols].dropna()
+
+# Correlation matrix
+corr_matrix = df[num_cols].corr()
+
+# Visualize
+plt.figure(figsize=(10, 8))
+sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", fmt=".2f")
+plt.title("Correlation Matrix with Yield")
+plt.show()
+```
+
+### Correlation of Distribution of Yield
+
+```{python}
+correlation = df[['land_under_rice_llu', 'yield_kg']].corr(method='pearson')
+print(correlation) 
+```
+
+### correlation between total_cultivable_land_llu and yield_kg
+
+```{python}
+correlation = df[['total_cultivable_land_llu', 'yield_kg']].corr(method='pearson')
+print(correlation)
+```
+
+### correlation between seedling age and yield_kg
+
+```{python}
+correlation = df[['seedling_age_days', 'yield_kg']].corr(method='pearson')
+print(correlation)
+```
+
+## HYPOTHESIS TESTS
+
+### Does irrigation affect yield?
+
+```{python}
+from scipy.stats import ttest_ind
+
+# Create two groups based on string values
+group1 = df[df['irrigation_applied_flag'] == 'Yes']['yield_kg']
+group2 = df[df['irrigation_applied_flag'] == 'No']['yield_kg']
+
+# Run the t-test
+t_stat, p_val = ttest_ind(group1, group2)
+
+# Output the result
+print(f"T-statistic = {t_stat:.2f}, p-value = {p_val:.4f}")
+
+```
+
+### Does tillage method affect yield by using ANOVA
+
+```{python}
+from scipy.stats import f_oneway
+
+# Step 1: Prepare the data — only keep relevant columns and drop missing values
+anova_data = df[['rice_tillage_method', 'yield_kg']].dropna()
+
+# Step 2: Group yield data by rice tillage method
+groups = [group['yield_kg'].values for name, group in anova_data.groupby('rice_tillage_method')]
+
+# Step 3: Perform one-way ANOVA
+f_stat, p_val = f_oneway(*groups)
+
+# Step 4: Output the results
+print(" ANOVA Results:")
+print(f"F-statistic: {f_stat:.4f}")
+print(f"P-value: {p_val:.4f}")
+
+# Optional: interpret result
+if p_val < 0.05:
+    print(" Statistically significant differences in yield across rice tillage methods.")
+else:
+    print(" No significant difference in yield across rice tillage methods.")
+```
+
+#### If p < 0.05, different tillage methods lead to significant yield differences.
+
+### Organic vs Chemical Fertilizer Impact on Yield
+
+```{python}
+from scipy.stats import ttest_ind
+
+# Filter using correct values (change to 'Yes' or 1 based on your data)
+org = df[df['organic_fertilizer_used_flag'] == 'Yes']['yield_kg']
+chem = df[df['chemical_fertilizer_used_flag'] == 'Yes']['yield_kg']
+
+# Run t-test
+t_stat, p_val = ttest_ind(org, chem)
+print(f"T-statistic = {t_stat:.2f}, p-value = {p_val:.4f}")
+```
+
+### 4. Challenges & Data Gaps Documentation
+
+```{python}
+# Identify data quality issues
+data_gaps = {
+    'missing_values': df.isnull().sum(),
+    'outliers': {
+        'weeding_times': len(df[~df['weeding_times'].between(1,5)]),
+        'yield_kg': len(df[df['yield_kg'] > df['yield_kg'].quantile(0.99)])
+    }
+}
+
+print("\nDATA QUALITY REPORT:")
+for issue, details in data_gaps.items():
+    print(f"\n{issue}:")
+    print(details)
+```
+
+### 5. Evidence-Based Recommendations
+
+#### Evidence-Based Recommendations
+##### From Analysis to Action:
+
+Extension Priorities:
+
+Target districts with lowest 25% yields for improved irrigation training
+
+Promote balanced fertilizer use where high Urea/DAP ratios correlate with low yields
+
+Input Optimization:
+### Pest Management:
+
+Develop targeted advisories for districts with high disease incidence
+
+Highlight successful organic pesticide cases (e.g., farms using jivamrit with low disease rates)
+
+
+
+
